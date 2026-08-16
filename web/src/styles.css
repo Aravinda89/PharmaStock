@@ -379,7 +379,9 @@ textarea { resize: vertical; min-height: 66px; }
 .banner.green { background: var(--green-bg); border-color: var(--green-border); color: #0f5537; }
 .banner.blue { background: var(--blue-bg); border-color: #cfe0f5; color: #16457f; }
 .banner .banner-body { flex: 1; }
-.banner strong { display: block; margin-bottom: 2px; }
+/* Only the leading <strong> is the banner's title. Scoping this to the first
+   child keeps emphasis mid-sentence inline instead of breaking onto its own line. */
+.banner .banner-body > strong:first-child { display: block; margin-bottom: 2px; }
 
 /* ---------------------------------------------------------------- states */
 

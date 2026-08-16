@@ -15,6 +15,7 @@ import { getDashboard } from '../services/dashboard.js';
 import {
   getAlertSummary, getExpiredBatches, getExpiringSoonBatches, getLowStockDrugs,
 } from '../services/alerts.js';
+import { sampleDataSummary, removeSampleData } from '../db/seed.js';
 import { PORT } from '../config.js';
 
 const router = Router();
@@ -127,6 +128,25 @@ router.delete('/backups/:filename', requirePermission(PERMISSIONS.BACKUP_MANAGE)
     recordAudit(req.user.id, 'DELETE_BACKUP', null, null, { filename: req.params.filename });
     res.json({ deleted: true });
   }));
+
+// ---------------------------------------------------------------------------
+// Sample data - the first-run showcase, and getting rid of it
+// ---------------------------------------------------------------------------
+
+router.get('/sample-data', requirePermission(PERMISSIONS.INVENTORY_VIEW), asyncHandler(async (_req, res) => {
+  res.json(sampleDataSummary());
+}));
+
+router.delete('/sample-data', requirePermission(PERMISSIONS.INVENTORY_MANAGE), asyncHandler(async (req, res) => {
+  const result = removeSampleData();
+  recordAudit(req.user.id, 'REMOVE_SAMPLE_DATA', null, null, result);
+  res.json({
+    ...result,
+    message: result.removed
+      ? 'Sample data removed. The inventory is now empty and ready for your real stock.'
+      : 'There was no sample data to remove.',
+  });
+}));
 
 // ---------------------------------------------------------------------------
 // System info - shown in Settings so the pharmacy knows the LAN address

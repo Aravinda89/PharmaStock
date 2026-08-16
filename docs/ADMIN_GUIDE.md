@@ -44,17 +44,26 @@ Starter accounts — **each must set its own password at first sign-in:**
 Delete or rename any account you do not need on the **Users** screen. The system will not let you
 remove or demote the last active pharmacist.
 
-### Optional: sample data
+### Sample data on first start
 
-To explore the system with realistic data before going live:
+The very first time PharmaStock starts on an empty database it fills itself with a worked example:
+12 drugs, 4 deliveries and 9 dispensing records, deliberately including expired stock, stock near
+expiry and low stock, so every alert has something to show and staff can learn the system on data
+that behaves realistically.
+
+It is ordinary working data — you can dispense it, receive against it and run reports on it.
+
+**When the pharmacy is ready to record real stock:** *Settings → Sample data → Remove all sample
+data.* Every sample record is tagged, so removal is exact — anything you added yourself is kept,
+and a delivery containing both sample and real drugs keeps its real lines. It does not come back on
+the next restart.
+
+The example is created **once**. If you remove it, or if the database already contains drugs, it is
+never injected again. To re-create it deliberately on a database that has none:
 
 ```
 npm run seed:demo
 ```
-
-This adds 12 drugs, several deliveries and dispensing records, deliberately including expired
-stock, stock near expiry and low stock so every alert has something to show. Do **not** run it on a
-live database — delete `data\pharmastock.db` first if you want a clean start.
 
 ---
 

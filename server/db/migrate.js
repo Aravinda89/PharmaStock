@@ -17,6 +17,20 @@ const MIGRATIONS = [
       db.exec(sql);
     },
   },
+  {
+    version: 2,
+    name: 'tag sample data so it can be removed cleanly',
+    // The demo inventory created on first run has to be removable in one
+    // action - otherwise a pharmacy going live ends up with fake Paracetamol
+    // sitting alongside its real stock. Tagging the records is what makes an
+    // exact removal possible later.
+    up(db) {
+      for (const table of ['suppliers', 'drugs', 'goods_receipts', 'dispenses', 'stock_adjustments']) {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN is_sample INTEGER NOT NULL DEFAULT 0`);
+      }
+      db.exec('CREATE INDEX idx_drugs_sample ON drugs(is_sample)');
+    },
+  },
 ];
 
 export function migrate(db) {
