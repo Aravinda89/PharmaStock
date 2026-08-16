@@ -29,4 +29,8 @@ export const DEFAULT_SETTINGS = {
   backup_retention_count: String(BACKUP_RETENTION),
   auto_backup_enabled: '1',
   last_backup_at: '',
+  // Set once, the first time the demo inventory is created. Checked on every
+  // startup so that a pharmacy which deliberately removed the sample data does
+  // not get it put back on the next restart.
+  sample_data_seeded: '0',
 };

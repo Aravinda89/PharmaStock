@@ -45,6 +45,21 @@ Forgotten your password? Ask the pharmacist to reset it.
 
 ---
 
+## The first time you open it — example data
+
+A brand-new PharmaStock fills itself with a **worked example**: 12 drugs, some deliveries and some
+dispensing records, deliberately including expired stock, stock near expiry and low stock. An amber
+banner across the top of the dashboard says so.
+
+This is there so you can learn the system safely. Dispense from it, receive against it, run
+reports — nothing you do to it matters.
+
+When the pharmacy is ready to record its real stock, the pharmacist removes it in one click:
+**Settings → Sample data → Remove all sample data.** Anything you added yourself is kept, and the
+example never comes back.
+
+---
+
 ## The dashboard
 
 The four tiles across the top answer the questions that matter most:

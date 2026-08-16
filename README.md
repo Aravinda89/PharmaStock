@@ -48,11 +48,16 @@ scripts\install.bat
 
 # or manually, any platform
 npm run setup
-npm run seed        # add --demo via `npm run seed:demo` for sample data
 npm start
 ```
 
 Then open **<http://localhost:4000>**.
+
+**The first start fills the system with a worked example** — 12 drugs, deliveries and dispensing
+records, deliberately including expired stock, stock near expiry and low stock — so the dashboard
+teaches rather than sits empty. Every sample record is tagged, and *Settings → Sample data* removes
+it exactly when the pharmacy is ready for real stock, keeping anything you added yourself. It is
+created once and never re-injected.
 
 Starter accounts — each must set its own password at first sign-in:
 

@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { PERMISSIONS, useAuth } from '../lib/auth';
-import type { Dashboard } from '../lib/types';
+import type { Dashboard, SampleDataSummary } from '../lib/types';
 import {
   Card, EmptyState, ErrorBanner, KpiTile, Loading, PageHeader,
 } from '../components/ui';
@@ -16,6 +16,12 @@ export function DashboardPage() {
     queryKey: ['dashboard'],
     queryFn: () => api.get<Dashboard>('/dashboard?limit=8'),
     refetchInterval: 120_000,
+  });
+
+  // Nobody should mistake the first-run showcase for their real inventory.
+  const { data: sample } = useQuery({
+    queryKey: ['sample-data'],
+    queryFn: () => api.get<SampleDataSummary>('/sample-data'),
   });
 
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening';
@@ -39,6 +45,22 @@ export function DashboardPage() {
       />
 
       <div className="page-body">
+        {sample?.present && (
+          <div className="banner amber" style={{ marginBottom: 20 }}>
+            <span aria-hidden="true">👋</span>
+            <div className="banner-body">
+              <strong>This is example data, to show you how PharmaStock works</strong>
+              {sample.drugs} sample drugs with {sample.receipts} deliveries and {sample.dispenses} dispensing
+              records — deliberately including expired stock, stock near expiry and low stock, so every
+              alert below has something to show. Try <strong>Dispense</strong> and watch the numbers change.
+              When you are ready for your real stock, remove it all in one click.
+            </div>
+            {can(PERMISSIONS.INVENTORY_MANAGE) && (
+              <Link className="btn small" to="/settings">Remove sample data</Link>
+            )}
+          </div>
+        )}
+
         {error && <ErrorBanner error={error} onRetry={() => void refetch()} />}
         {isLoading && <Loading label="Loading today's figures…" />}
 

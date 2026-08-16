@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, downloadFile, uploadFile } from '../lib/api';
 import { PERMISSIONS, useAuth } from '../lib/auth';
 import { useToast } from '../lib/toast';
-import type { BackupFile, Settings } from '../lib/types';
+import type { BackupFile, SampleDataSummary, Settings } from '../lib/types';
 import { Banner, Card, ConfirmDialog, EmptyState, Loading, PageHeader } from '../components/ui';
 import { formatBytes, formatDateTime } from '../lib/format';
 
@@ -42,6 +42,7 @@ export function SettingsPage() {
   const [restoring, setRestoring] = useState<BackupFile | null>(null);
   const [restoringUpload, setRestoringUpload] = useState<File | null>(null);
   const [integrity, setIntegrity] = useState<IntegrityResult | null>(null);
+  const [clearingSample, setClearingSample] = useState(false);
 
   const { data: system } = useQuery({
     queryKey: ['system'],
@@ -97,6 +98,24 @@ export function SettingsPage() {
     },
     onError: (err: Error) => {
       setRestoringUpload(null);
+      toast.error(err.message);
+    },
+  });
+
+  const { data: sample } = useQuery({
+    queryKey: ['sample-data'],
+    queryFn: () => api.get<SampleDataSummary>('/sample-data'),
+  });
+
+  const clearSample = useMutation({
+    mutationFn: () => api.del<{ message: string }>('/sample-data'),
+    onSuccess: (data) => {
+      setClearingSample(false);
+      toast.success('Sample data removed', [data.message]);
+      void queryClient.invalidateQueries();
+    },
+    onError: (err: Error) => {
+      setClearingSample(false);
       toast.error(err.message);
     },
   });
@@ -206,6 +225,35 @@ export function SettingsPage() {
           </Card>
         </div>
 
+        {sample?.present && (
+          <Card title="Sample data">
+            <Banner tone="amber" icon="👋" title="Your inventory is currently example data">
+              PharmaStock filled itself with a worked example on first start so you could see how it
+              behaves. It is real, working data — you can dispense it, receive against it and run
+              reports on it while you learn the system.
+            </Banner>
+
+            <p className="muted">
+              Currently {sample.drugs} drugs, {sample.batches} batches, {sample.receipts} deliveries,{' '}
+              {sample.dispenses} dispensing records and {sample.movements} stock movements.
+            </p>
+
+            {can(PERMISSIONS.INVENTORY_MANAGE) ? (
+              <>
+                <button className="btn danger" type="button" onClick={() => setClearingSample(true)}>
+                  🧹 Remove all sample data
+                </button>
+                <div className="hint" style={{ marginTop: 6 }}>
+                  Do this once, when you are ready to enter your real stock. Anything you have added
+                  yourself is kept.
+                </div>
+              </>
+            ) : (
+              <p className="muted">Only the pharmacist can remove the sample data.</p>
+            )}
+          </Card>
+        )}
+
         {canBackup && (
           <Card
             title="Backups"
@@ -300,6 +348,34 @@ export function SettingsPage() {
           </div>
         </Card>
       </div>
+
+      {clearingSample && sample && (
+        <ConfirmDialog
+          title="Remove all sample data?"
+          tone="danger"
+          confirmLabel="Yes, remove the sample data"
+          busy={clearSample.isPending}
+          onCancel={() => setClearingSample(false)}
+          onConfirm={() => clearSample.mutate()}
+          message={
+            <>
+              <p>
+                This permanently deletes the {sample.drugs} example drugs and everything recorded
+                against them — {sample.batches} batches, {sample.receipts} deliveries,{' '}
+                {sample.dispenses} dispensing records and {sample.movements} stock movements.
+              </p>
+              <p>
+                Drugs, suppliers and stock <strong>you</strong> added are kept. It will not come back
+                on the next restart.
+              </p>
+              <p className="muted">
+                If you have recorded real stock against one of the example drugs, that stock goes
+                too. In that case, edit the drug and keep it instead of removing everything.
+              </p>
+            </>
+          }
+        />
+      )}
 
       {restoring && (
         <ConfirmDialog

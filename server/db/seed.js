@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { getDb, closeDb } from './connection.js';
+import { getSetting, setSettings } from '../services/settings.js';
 import { hashPassword } from '../services/users.js';
 import { receiveStock } from '../services/receiving.js';
 import { dispenseStock } from '../services/dispensing.js';
@@ -70,11 +71,13 @@ export function seedDemoData(db = getDb()) {
   const assistant = db.prepare("SELECT id FROM users WHERE role = 'ASSISTANT' LIMIT 1").get();
   if (!pharmacist) throw new Error('Seed the users first.');
 
+  // Everything created below is tagged is_sample = 1 so the pharmacy can wipe
+  // it in one action when it starts recording real stock.
   const supplierIds = SUPPLIERS.map((s) => {
     const existing = db.prepare('SELECT id FROM suppliers WHERE name = ?').get(s.name);
     if (existing) return existing.id;
     return db
-      .prepare('INSERT INTO suppliers (name, contact_person, phone, email) VALUES (?, ?, ?, ?)')
+      .prepare('INSERT INTO suppliers (name, contact_person, phone, email, is_sample) VALUES (?, ?, ?, ?, 1)')
       .run(s.name, s.contact_person, s.phone, s.email).lastInsertRowid;
   });
 
@@ -84,8 +87,8 @@ export function seedDemoData(db = getDb()) {
     return db
       .prepare(
         `INSERT INTO drugs (code, name, generic_name, strength, form, unit,
-                            min_stock_level, default_supplier_id, storage_location)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                            min_stock_level, default_supplier_id, storage_location, is_sample)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`
       )
       .run(d.code, d.name, d.generic_name, d.strength, d.form, d.unit,
            d.min_stock_level, supplierIds[i % supplierIds.length], d.storage_location)
@@ -96,6 +99,11 @@ export function seedDemoData(db = getDb()) {
     console.log('  Demo stock already present - skipping.');
     return;
   }
+
+  // Anything the receive/dispense services create after this point belongs to
+  // the demo, and is tagged at the end by comparing against these watermarks.
+  const receiptWatermark = db.prepare('SELECT COALESCE(MAX(id), 0) AS n FROM goods_receipts').get().n;
+  const dispenseWatermark = db.prepare('SELECT COALESCE(MAX(id), 0) AS n FROM dispenses').get().n;
 
   const d = (n) => addDays(today(), n);
 
@@ -182,9 +190,100 @@ export function seedDemoData(db = getDb()) {
     lines: [{ drugId: drugIds[3], quantity: 55 }],
   }, pharmacist.id, db);
 
+  db.prepare('UPDATE goods_receipts SET is_sample = 1 WHERE id > ?').run(receiptWatermark);
+  db.prepare('UPDATE dispenses SET is_sample = 1 WHERE id > ?').run(dispenseWatermark);
+  setSettings({ sample_data_seeded: '1' }, null, db);
+
   console.log('  Demo inventory created: 12 drugs, 4 deliveries, 9 dispensing records.');
   console.log('  It includes expired stock, stock expiring soon, and low stock,');
   console.log('  so every dashboard alert has something to show.');
+  console.log('  Remove it any time from Settings -> Sample data.');
+}
+
+/** Counts behind the "this is sample data" banner and the removal dialog. */
+export function sampleDataSummary(db = getDb()) {
+  const drugs = db.prepare('SELECT COUNT(*) AS n FROM drugs WHERE is_sample = 1').get().n;
+  if (drugs === 0) {
+    return { present: false, drugs: 0, batches: 0, movements: 0, receipts: 0, dispenses: 0, suppliers: 0 };
+  }
+
+  const counts = db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM batches WHERE drug_id IN (SELECT id FROM drugs WHERE is_sample = 1)) AS batches,
+         (SELECT COUNT(*) FROM stock_ledger WHERE drug_id IN (SELECT id FROM drugs WHERE is_sample = 1)) AS movements,
+         (SELECT COUNT(*) FROM goods_receipts WHERE is_sample = 1) AS receipts,
+         (SELECT COUNT(*) FROM dispenses WHERE is_sample = 1) AS dispenses,
+         (SELECT COUNT(*) FROM suppliers WHERE is_sample = 1) AS suppliers`
+    )
+    .get();
+
+  return { present: true, drugs, ...counts };
+}
+
+/**
+ * Remove every sample record, leaving anything real untouched.
+ *
+ * Deletion runs child-first so foreign keys never block it. A delivery or
+ * dispense that also contains real drugs keeps its real lines and survives -
+ * only genuinely empty sample headers are removed.
+ */
+export function removeSampleData(db = getDb()) {
+  const summary = sampleDataSummary(db);
+  if (!summary.present) return { removed: false, ...summary };
+
+  return db.transaction(() => {
+    const sampleDrugs = 'SELECT id FROM drugs WHERE is_sample = 1';
+
+    db.prepare(`DELETE FROM stock_ledger WHERE drug_id IN (${sampleDrugs})`).run();
+    db.prepare(`DELETE FROM dispense_lines WHERE drug_id IN (${sampleDrugs})`).run();
+    db.prepare(`DELETE FROM goods_receipt_lines WHERE drug_id IN (${sampleDrugs})`).run();
+    db.prepare(`DELETE FROM stock_adjustments WHERE drug_id IN (${sampleDrugs})`).run();
+    db.prepare(`DELETE FROM batches WHERE drug_id IN (${sampleDrugs})`).run();
+
+    db.prepare(
+      `DELETE FROM dispenses
+       WHERE is_sample = 1 AND id NOT IN (SELECT DISTINCT dispense_id FROM dispense_lines)`
+    ).run();
+    db.prepare(
+      `DELETE FROM goods_receipts
+       WHERE is_sample = 1 AND id NOT IN (SELECT DISTINCT goods_receipt_id FROM goods_receipt_lines)`
+    ).run();
+
+    db.prepare('DELETE FROM drugs WHERE is_sample = 1').run();
+
+    // A sample supplier is kept if real records now point at it.
+    db.prepare(
+      `DELETE FROM suppliers
+       WHERE is_sample = 1
+         AND id NOT IN (SELECT supplier_id FROM goods_receipts WHERE supplier_id IS NOT NULL)
+         AND id NOT IN (SELECT default_supplier_id FROM drugs WHERE default_supplier_id IS NOT NULL)
+         AND id NOT IN (SELECT supplier_id FROM batches WHERE supplier_id IS NOT NULL)`
+    ).run();
+
+    return { removed: true, ...summary };
+  })();
+}
+
+/**
+ * First-run showcase. A brand-new install opens on an empty dashboard with
+ * nothing to click, which teaches nobody anything - so the first start fills
+ * it with a worked example of a pharmacy in mid-flow.
+ *
+ * Runs only when the catalogue is genuinely empty AND the demo has never been
+ * created before, so removing the sample data is permanent.
+ */
+export function ensureFirstRunExample(db = getDb()) {
+  if (getSetting('sample_data_seeded', db) === '1') return { seeded: false };
+  if (db.prepare('SELECT COUNT(*) AS n FROM drugs').get().n > 0) {
+    // A real catalogue already exists - never inject sample data into it.
+    setSettings({ sample_data_seeded: '1' }, null, db);
+    return { seeded: false };
+  }
+
+  console.log('  Setting up an example inventory so you can see how the system works.');
+  seedDemoData(db);
+  return { seeded: true };
 }
 
 // Run directly: `npm run seed` or `npm run seed:demo`

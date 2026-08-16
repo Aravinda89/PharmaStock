@@ -200,6 +200,16 @@ export interface Report {
   totals: Record<string, number>;
 }
 
+export interface SampleDataSummary {
+  present: boolean;
+  drugs: number;
+  batches: number;
+  movements: number;
+  receipts: number;
+  dispenses: number;
+  suppliers: number;
+}
+
 export interface BackupFile {
   filename: string;
   size: number;
