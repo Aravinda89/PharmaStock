@@ -32,14 +32,19 @@ There is no database server, no web server, no internet dependency and no licenc
 It installs everything, builds the screens, creates the database and puts a **PharmaStock**
 shortcut on the desktop.
 
-Starter accounts — **each must set its own password at first sign-in:**
+Four starter accounts are created: `pharmacist`, `doctor`, `assistant1` and `assistant2`.
 
-| Username | Password | Role |
-|---|---|---|
-| `pharmacist` | `pharma123` | Pharmacist |
-| `doctor` | `doctor123` | Doctor |
-| `assistant1` | `assist123` | Assistant |
-| `assistant2` | `assist123` | Assistant |
+> **Their passwords are generated randomly for your installation and printed to the screen once,
+> during setup.** They are not in the documentation or the source code, and there is no way to
+> recover them afterwards — write them down before closing the window, and give each person theirs
+> directly.
+
+Until someone replaces their temporary password, their account can do **nothing** except sign in
+and set one. This is enforced by the server, not the browser, so it applies to anything that talks
+to the system.
+
+If you lose the passwords before handing them out, delete `data\pharmastock.db` and run
+`scripts\install.bat` again to start over — but only before any real stock has been entered.
 
 Delete or rename any account you do not need on the **Users** screen. The system will not let you
 remove or demote the last active pharmacist.

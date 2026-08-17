@@ -51,11 +51,12 @@ echo.
 echo    Double-click "PharmaStock" on the desktop to start.
 echo    Then open http://localhost:4000 and sign in.
 echo.
-echo    Starter accounts (each must set a new password on first use):
-echo      pharmacist / pharma123
-echo      doctor     / doctor123
-echo      assistant1 / assist123
-echo      assistant2 / assist123
+echo    IMPORTANT: the starter account passwords were printed above,
+echo    in the "[4/4] Preparing the database" step. They are random,
+echo    unique to this installation, and are NOT shown again.
+echo.
+echo    Scroll up, write them down, and give each person theirs
+echo    directly. Each must set their own password at first sign-in.
 echo.
 echo    Read docs\USER_GUIDE.md for how to use the system.
 echo   ============================================================

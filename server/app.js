@@ -4,7 +4,7 @@ import express from 'express';
 import session from 'express-session';
 import { getDb } from './db/connection.js';
 import { createSessionStore } from './lib/sessionStore.js';
-import { loadUser, requireAuth } from './middleware/auth.js';
+import { loadUser, requireAuth, requirePasswordChange } from './middleware/auth.js';
 import { notFoundHandler, errorHandler } from './middleware/error.js';
 import { SESSION_SECRET, SESSION_MAX_AGE_MS, WEB_DIST } from './config.js';
 
@@ -48,8 +48,11 @@ export function createApp({ serveStatic = true } = {}) {
 
   app.use('/api/auth', authRoutes);
 
-  // Everything past this point requires a signed-in user.
+  // Everything past this point requires a signed-in user who has replaced any
+  // temporary password. Both guards are server-side on purpose - the client
+  // enforces the same rules for usability, never for security.
   app.use('/api', requireAuth);
+  app.use('/api', requirePasswordChange);
   app.use('/api/drugs', drugRoutes);
   app.use('/api/stock', stockRoutes);
   app.use('/api/suppliers', supplierRoutes);

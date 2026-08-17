@@ -59,13 +59,13 @@ teaches rather than sits empty. Every sample record is tagged, and *Settings →
 it exactly when the pharmacy is ready for real stock, keeping anything you added yourself. It is
 created once and never re-injected.
 
-Starter accounts — each must set its own password at first sign-in:
+Four starter accounts are created on first run — `pharmacist` (full access), `doctor` (view
+inventory and reports) and `assistant1` / `assistant2` (search, dispense, receive if allowed).
 
-| Username | Password | Role |
-|---|---|---|
-| `pharmacist` | `pharma123` | Full access |
-| `doctor` | `doctor123` | View inventory and reports |
-| `assistant1` / `assistant2` | `assist123` | Search, dispense, receive if allowed |
+**Their passwords are generated per install and printed once to the console during setup.** Write
+them down and hand them out directly. Until each person replaces their temporary password, the
+account can do nothing else — enforced on the server, so it holds for anything that talks to the
+API, not just the browser.
 
 ---
 

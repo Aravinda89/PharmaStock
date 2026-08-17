@@ -1,4 +1,6 @@
+import fs from 'node:fs';
 import path from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -15,8 +17,34 @@ export const PORT = Number(process.env.PORT || 4000);
 // and let other machines browse to http://<laptop-ip>:4000 with no code change.
 export const HOST = process.env.HOST || '0.0.0.0';
 
-export const SESSION_SECRET =
-  process.env.SESSION_SECRET || 'pharmastock-local-session-secret-change-me';
+/**
+ * The cookie-signing key, generated once per install and kept in the data
+ * folder (which is gitignored and covered by backups).
+ *
+ * A literal committed to source would be the same key on every machine that
+ * runs this, and published in the repository - so it would not be a secret at
+ * all. Generating it here means each pharmacy gets its own, with no setup step
+ * for them to forget.
+ */
+function loadOrCreateSessionSecret() {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+
+  const secretFile = path.join(DATA_DIR, 'session-secret');
+  try {
+    const existing = fs.readFileSync(secretFile, 'utf8').trim();
+    if (existing.length >= 32) return existing;
+  } catch {
+    // Not created yet - fall through and make one.
+  }
+
+  const secret = randomBytes(32).toString('hex');
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  // Owner-only where the platform honours it; harmless on Windows.
+  fs.writeFileSync(secretFile, secret, { encoding: 'utf8', mode: 0o600 });
+  return secret;
+}
+
+export const SESSION_SECRET = loadOrCreateSessionSecret();
 
 // 12 hours - comfortably longer than a pharmacy shift.
 export const SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
