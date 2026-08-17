@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { getDb, closeDb } from './connection.js';
 import { getSetting, setSettings } from '../services/settings.js';
@@ -7,16 +8,34 @@ import { dispenseStock } from '../services/dispensing.js';
 import { today, addDays } from '../lib/dates.js';
 
 /**
- * The four staff accounts from the requirements. Passwords are placeholders -
- * every account is flagged must_change_password, so each person is forced to
- * set their own the first time they sign in.
+ * The four staff accounts from the requirements.
+ *
+ * Passwords are generated per install rather than shipped in the source. A
+ * fixed password published in a repository is a working credential on every
+ * machine that ever runs this, and the server binds to the network by default -
+ * so the starter accounts would otherwise be usable by anyone who can reach
+ * the laptop. The generated password is printed once, to the console of the
+ * person doing the install, and must be replaced at first sign-in.
  */
 const SEED_USERS = [
-  { username: 'doctor', fullName: 'Dr. Ramesh Kumar', role: 'DOCTOR', password: 'doctor123' },
-  { username: 'pharmacist', fullName: 'Anita Pharmacist', role: 'PHARMACIST', password: 'pharma123' },
-  { username: 'assistant1', fullName: 'Suresh Assistant', role: 'ASSISTANT', password: 'assist123' },
-  { username: 'assistant2', fullName: 'Priya Assistant', role: 'ASSISTANT', password: 'assist123' },
+  { username: 'doctor', fullName: 'Dr. Ramesh Kumar', role: 'DOCTOR' },
+  { username: 'pharmacist', fullName: 'Anita Pharmacist', role: 'PHARMACIST' },
+  { username: 'assistant1', fullName: 'Suresh Assistant', role: 'ASSISTANT' },
+  { username: 'assistant2', fullName: 'Priya Assistant', role: 'ASSISTANT' },
 ];
+
+// Ambiguous characters (0/O, 1/l/I) left out - these get read off a screen and
+// typed by hand, and a mistyped password is indistinguishable from a wrong one.
+const PASSWORD_ALPHABET = 'abcdefghijkmnpqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+export function generateTemporaryPassword(length = 10) {
+  const bytes = randomBytes(length);
+  let password = '';
+  for (let i = 0; i < length; i += 1) {
+    password += PASSWORD_ALPHABET[bytes[i] % PASSWORD_ALPHABET.length];
+  }
+  return password;
+}
 
 export function ensureSeedUsers(db = getDb()) {
   const existing = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
@@ -27,18 +46,28 @@ export function ensureSeedUsers(db = getDb()) {
      VALUES (?, ?, ?, ?, 1)`
   );
 
+  const created = SEED_USERS.map((user) => ({ ...user, password: generateTemporaryPassword() }));
+
   db.transaction(() => {
-    for (const user of SEED_USERS) {
+    for (const user of created) {
       insert.run(user.username, user.fullName, hashPassword(user.password), user.role);
     }
   })();
 
-  console.log('  Created the four starter accounts (each must set a new password at first sign-in):');
-  for (const u of SEED_USERS) {
-    console.log(`    ${u.username.padEnd(12)} / ${u.password.padEnd(10)}  ${u.role}`);
+  console.log('');
+  console.log('  ============================================================');
+  console.log('   STARTER ACCOUNTS - written here once and never shown again');
+  console.log('  ============================================================');
+  for (const u of created) {
+    console.log(`    ${u.username.padEnd(12)} ${u.password.padEnd(12)} ${u.role}`);
   }
+  console.log('');
+  console.log('   Give each person their password directly. Each one must set');
+  console.log('   their own at first sign-in - until then the account cannot');
+  console.log('   do anything else. Delete any account you do not need.');
+  console.log('  ============================================================');
 
-  return { created: SEED_USERS.length };
+  return { created: created.length, accounts: created };
 }
 
 const SUPPLIERS = [

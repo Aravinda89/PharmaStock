@@ -34,6 +34,30 @@ export function requireAuth(req, _res, next) {
 }
 
 /**
+ * A user carrying a temporary password (a fresh install, or a pharmacist-issued
+ * reset) may do nothing but set a real one.
+ *
+ * This has to live on the server. The client also redirects to the change-password
+ * screen, but a client-side check is decoration: anything that can send an HTTP
+ * request bypasses it entirely, which would leave the seeded starter accounts
+ * usable over the network by anyone who has read the setup instructions.
+ */
+const PASSWORD_CHANGE_ALLOWED = new Set([
+  '/auth/me',
+  '/auth/logout',
+  '/auth/change-password',
+]);
+
+export function requirePasswordChange(req, _res, next) {
+  if (!req.user?.must_change_password) return next();
+  if (PASSWORD_CHANGE_ALLOWED.has(req.path)) return next();
+
+  return next(
+    forbidden('Please choose your own password before using the system.')
+  );
+}
+
+/**
  * Route guard. The UI hides buttons the user cannot use, but this is what
  * actually enforces it.
  */
